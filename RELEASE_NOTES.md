@@ -4,6 +4,34 @@ This document chronicles the evolution of Tutra from a technical perspective, su
 
 ---
 
+## [Phase 4 Completion] - Infrastructure Agnosticism & Deployment Readiness
+**Date:** 2026-06-26
+
+### What Changed
+* **100% Portability Achieved:** The backend and frontend have been rigorously decoupled from their host infrastructure. The application now natively treats infrastructure as an external dependency injected strictly via environment variables.
+* **CORS Externalization:** `main.py` now parses `ALLOWED_ORIGINS` to dynamically enforce Cross-Origin Resource Sharing, replacing hardcoded localhost arrays.
+* **Authentication Independence:** `auth.py` respects the `GOOGLE_CLIENT_ID` environment variable, allowing dynamic configuration of OAuth audienced without code changes.
+* **AI Provider Flexibility:** The `ollama` SDK abstraction natively supports `OLLAMA_HOST` overrides, meaning the same codebase can run local inference or connect to a remote instance via configuration alone.
+* **Frontend Decoupling:** Next.js `api.ts` completely stripped of hardcoded fallbacks, strictly enforcing the usage of `NEXT_PUBLIC_API_URL`.
+
+### Breaking Changes
+* Deploying the application now strictly requires `ALLOWED_ORIGINS`, `DATABASE_URL`, `JWT_SECRET`, and `GOOGLE_CLIENT_ID` to be present in the backend environment.
+* `NEXT_PUBLIC_API_URL` is now a mandatory build-time variable for the Vercel frontend.
+
+### Frozen Architecture
+The following architectural domains are officially declared frozen:
+* Google Authentication Flow
+* Student Learning Record (SLR) Architecture
+* State Machine Rules (`VALID_TRANSITIONS`)
+* Parent Journey Logic
+* Core Documentation
+
+### Current Readiness
+* **Static Portability:** 100%
+* **Deployment Readiness:** Ready for Validation Phase.
+
+---
+
 ## [Phase 3 Completion] - SLR Integrity & State Machine Architecture
 **Date:** 2026-06-26
 
