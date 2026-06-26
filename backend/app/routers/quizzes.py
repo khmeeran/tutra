@@ -5,7 +5,7 @@ from sqlalchemy import select
 from pydantic import BaseModel
 from typing import Dict
 from app.database import get_db
-from app.models import Quiz, QuizQuestion, QuizAttempt, TopicMastery, Topic, StudentActivityLog
+from app.models import Quiz, QuizQuestion, QuizAttempt, ConceptMastery, Concept, StudentActivityLog
 from app.services.ai_service import generate_quiz_for_topic
 
 router = APIRouter(prefix="/api/v1/quizzes", tags=["Quizzes"])

@@ -1,32 +1,40 @@
 import uuid
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
 from .database import engine, get_db
 from . import schemas, auth
-from .routers import curriculum, quizzes, analytics
+from .routers import curriculum, quizzes, analytics, discovery, lesson, learning_record, auth as auth_router
 from .services.ai_service import generate_chat_response
 
 from app.models import Base, User, Organization, OrganizationUser, StudentProfile, Enrollment, Conversation, Message, Plan, Subscription
 
 app = FastAPI(title="Tutra Full MVP API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 security = HTTPBearer()
 
 app.include_router(curriculum.router)
 app.include_router(quizzes.router)
 app.include_router(analytics.router)
-
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: AsyncSession = Depends(get_db)):
-    payload = auth.verify_token(credentials.credentials)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    stmt = select(User).where(User.id == uuid.UUID(payload.get("sub")))
-    user = (await db.execute(stmt)).scalars().first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
+app.include_router(discovery.router)
+app.include_router(lesson.router)
+app.include_router(learning_record.router)
+app.include_router(auth_router.router)
 
 @app.on_event("startup")
 async def startup():
@@ -72,7 +80,7 @@ async def login(data: schemas.LoginRequest, db: AsyncSession = Depends(get_db)):
     return {"access_token": auth.create_access_token({"sub": str(user.id), "role": user.role}), "token_type": "bearer"}
 
 @app.post("/api/v1/students", tags=["Students"])
-async def create_student(data: schemas.StudentCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def create_student(data: schemas.StudentCreate, user: User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
     if user.role != "parent":
         raise HTTPException(status_code=403, detail="Only parents can create students")
     
@@ -90,7 +98,7 @@ async def create_student(data: schemas.StudentCreate, user: User = Depends(get_c
     return {"message": "Student created", "student_profile_id": str(profile.id)}
 
 @app.post("/api/v1/conversations/chat", response_model=schemas.ChatResponse, tags=["Chat"])
-async def chat(data: schemas.ChatRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def chat(data: schemas.ChatRequest, user: User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
     profile = (await db.execute(select(StudentProfile).where(StudentProfile.user_id == user.id))).scalars().first()
     if not profile:
         profile = StudentProfile(user_id=user.id, medium="N/A", school_name="Testing")

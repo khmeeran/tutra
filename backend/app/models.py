@@ -23,12 +23,16 @@ class Organization(Base, TimestampMixin):
 class User(Base, TimestampMixin):
     __tablename__ = 'users'
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    google_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
+    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
+    profile_picture: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True)
     password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     role: Mapped[str] = mapped_column(String(50))
     status: Mapped[str] = mapped_column(String(50), default='active')
     auth_provider: Mapped[str] = mapped_column(String(50), default='local')
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 class OrganizationUser(Base, TimestampMixin):
     __tablename__ = 'organization_users'
@@ -94,39 +98,26 @@ class StudentSubject(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(50), default='active')
     __table_args__ = (UniqueConstraint('enrollment_id', 'subject_id'),)
 
-class Chapter(Base, TimestampMixin):
-    __tablename__ = 'chapters'
+class Concept(Base, TimestampMixin):
+    __tablename__ = 'concepts'
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     subject_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('subjects.id', ondelete='CASCADE'))
-    chapter_number: Mapped[int] = mapped_column(Integer)
-    title: Mapped[str] = mapped_column(String(255))
+    name: Mapped[str] = mapped_column(String(255))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-class Topic(Base, TimestampMixin):
-    __tablename__ = 'topics'
+class ConceptDependency(Base, TimestampMixin):
+    __tablename__ = 'concept_dependencies'
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    chapter_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('chapters.id', ondelete='CASCADE'))
-    title: Mapped[str] = mapped_column(String(255))
-    sequence_order: Mapped[int] = mapped_column(Integer)
-
-class LearningContent(Base, TimestampMixin):
-    __tablename__ = 'learning_content'
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    topic_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('topics.id', ondelete='CASCADE'))
-    content_type: Mapped[str] = mapped_column(String(100))
-    language: Mapped[str] = mapped_column(String(50), default='en')
-    title: Mapped[str] = mapped_column(String(255))
-    content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    content_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    version: Mapped[str] = mapped_column(String(50), default='1.0')
+    concept_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('concepts.id', ondelete='CASCADE'))
+    prerequisite_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('concepts.id', ondelete='CASCADE'))
+    __table_args__ = (UniqueConstraint('concept_id', 'prerequisite_id'),)
 
 class Conversation(Base, TimestampMixin):
     __tablename__ = 'conversations'
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('student_profiles.id', ondelete='CASCADE'))
     subject_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('subjects.id', ondelete='CASCADE'))
-    chapter_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey('chapters.id', ondelete='SET NULL'), nullable=True)
-    topic_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey('topics.id', ondelete='SET NULL'), nullable=True)
+    concept_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey('concepts.id', ondelete='SET NULL'), nullable=True)
     title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default='active')
 
@@ -145,7 +136,7 @@ class Quiz(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('student_profiles.id', ondelete='CASCADE'))
     subject_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('subjects.id', ondelete='CASCADE'))
-    chapter_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey('chapters.id', ondelete='SET NULL'), nullable=True)
+    concept_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey('concepts.id', ondelete='SET NULL'), nullable=True)
     difficulty: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     generated_by: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     time_limit_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -172,21 +163,26 @@ class QuizAttempt(Base, TimestampMixin):
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-class TopicMastery(Base, TimestampMixin):
-    __tablename__ = 'topic_mastery'
+class ConceptMastery(Base, TimestampMixin):
+    __tablename__ = 'concept_mastery'
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('student_profiles.id', ondelete='CASCADE'))
-    topic_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('topics.id', ondelete='CASCADE'))
-    mastery_score: Mapped[Optional[float]] = mapped_column(Float, default=0)
+    concept_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('concepts.id', ondelete='CASCADE'))
+    mastery_score: Mapped[Optional[float]] = mapped_column(Float, default=0.0)
+    confidence: Mapped[Optional[str]] = mapped_column(String(50), default='Low')
     attempts: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     last_updated: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    __table_args__ = (UniqueConstraint('student_profile_id', 'topic_id'),)
+    __table_args__ = (UniqueConstraint('student_profile_id', 'concept_id'),)
 
 class StudentActivityLog(Base):
     __tablename__ = 'student_activity_log'
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('student_profiles.id', ondelete='CASCADE'))
+    session_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
     activity_type: Mapped[str] = mapped_column(String(100))
+    subject: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    concept: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     metadata_json: Mapped[Optional[Any]] = mapped_column(JSONB, nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

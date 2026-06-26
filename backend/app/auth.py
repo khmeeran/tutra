@@ -2,8 +2,16 @@ import os
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from jose import JWTError, jwt
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from .database import get_db
+import uuid
 
-SECRET_KEY = "supersecretkey"
+security = HTTPBearer()
+
+SECRET_KEY = os.getenv("JWT_SECRET", "supersecretkey")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
@@ -31,3 +39,21 @@ def verify_token(token: str):
         return payload
     except JWTError:
         return None
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: AsyncSession = Depends(get_db)):
+    from app.models import User
+    payload = verify_token(credentials.credentials)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    stmt = select(User).where(User.id == uuid.UUID(payload.get("sub")))
+    user = (await db.execute(stmt)).scalars().first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+def require_role(required_role: str):
+    async def role_checker(user = Depends(get_current_user)):
+        if user.role != required_role and user.role != "admin":
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+        return user
+    return role_checker

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
-from app.models import Board, Grade, Subject, Chapter, Topic
+from app.models import Board, Grade, Subject
 
 router = APIRouter(prefix="/api/v1/curriculum", tags=["Curriculum"])
 
